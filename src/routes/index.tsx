@@ -56,8 +56,12 @@ const navItems: Array<{ id: View; label: string; icon: typeof MessageCircle }> =
 ];
 
 function ShopAssistApp() {
-  const [view, setView] = useState<View>("assistant");
+  const [view, setView] = useState<View | "landing">("landing");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  if (view === "landing") {
+    return <LandingPage onOpenAssistant={() => setView("assistant")} onNavigate={setView} />;
+  }
 
   if (view === "assistant") {
     return (
@@ -105,13 +109,12 @@ function LandingHeader({ onOpenAssistant, onNavigate }: { onOpenAssistant: () =>
   );
 }
 
-function LandingPage({ onOpenAssistant }: { onOpenAssistant: () => void }) {
+function LandingPage({ onOpenAssistant, onNavigate }: { onOpenAssistant: () => void; onNavigate: (view: View) => void }) {
   return (
     <div className="app-shell min-h-screen overflow-hidden text-foreground">
-      <LandingHeader onOpenAssistant={onOpenAssistant} onNavigate={() => undefined} />
+      <LandingHeader onOpenAssistant={onOpenAssistant} onNavigate={onNavigate} />
       <main>
         <section className="relative mx-auto grid max-w-7xl items-center gap-10 px-5 py-14 lg:grid-cols-12 lg:px-8 lg:py-24">
-          <div className="absolute left-1/2 top-0 h-96 w-[900px] -translate-x-1/2 rounded-full bg-glow/10 blur-[130px]" aria-hidden="true" />
           <div className="relative z-10 lg:col-span-5">
             <span className="inline-flex items-center gap-2 rounded-full border border-foreground/10 bg-elevated/70 px-3 py-1 text-xs text-muted-foreground"><span className="size-1.5 rounded-full bg-glow" /> Live agent console</span>
             <h1 className="mt-6 max-w-xl font-display text-5xl font-semibold leading-[1.03] tracking-tight lg:text-6xl">Customer support, <span className="text-glow">reimagined with AI.</span></h1>
