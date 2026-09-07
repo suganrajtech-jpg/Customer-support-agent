@@ -15,7 +15,10 @@ type BackendResponse = {
   memory_used: boolean;
 };
 
-const backendUrl = (import.meta.env.VITE_BACKEND_URL ?? "http://localhost:8000").replace(/\/$/, "");
+const defaultBackendUrl = import.meta.env.PROD
+  ? "https://shopassist-backend-c2v9.onrender.com"
+  : "http://localhost:8000";
+const backendUrl = (import.meta.env.VITE_BACKEND_URL || defaultBackendUrl).replace(/\/$/, "");
 
 const toolLabels: Record<string, string> = {
   search_products: "Product Search Tool",
