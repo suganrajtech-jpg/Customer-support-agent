@@ -49,6 +49,7 @@ frontend_origins = {
     if origin.strip()
 }
 frontend_origins.add("https://customer-support-agent-rho-sable.vercel.app")
+frontend_origins.add("https://customer-support-agent-5cirwq63h-itxsugan-2735s-projects.vercel.app")
 
 # Add CORS middleware
 app.add_middleware(
