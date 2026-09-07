@@ -1,5 +1,6 @@
 """ShopAssist agent with LangChain tool calling and simple session memory."""
 
+import logging
 import os
 import re
 from typing import Any, Optional
@@ -7,10 +8,12 @@ from typing import Any, Optional
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 
+from .deterministic_support import FALLBACK_RESPONSE, deterministic_response
 from ..tools import get_order_status, process_return, recommend_products, search_products
 
 TOOLS = [search_products, get_order_status, process_return, recommend_products]
 _SESSIONS: dict[str, dict[str, Any]] = {}
+logger = logging.getLogger(__name__)
 
 
 def _session(session_id: str) -> dict[str, Any]:
@@ -45,37 +48,24 @@ def create_shopassist_agent(provider: str = "openai", model: Optional[str] = Non
     )
 
 
-def _local_response(message: str, session: dict[str, Any]) -> tuple[str, str]:
-    lower = message.lower()
-    order_match = re.search(r"#?\s*(1024|1025|1026)\b", lower)
-    if any(word in lower for word in ("return", "refund")):
-        return process_return.invoke({"order_id": order_match.group(1) if order_match else ""}), "process_return"
-    if any(word in lower for word in ("where", "status", "delivery")) and order_match:
-        return get_order_status.invoke({"order_id": order_match.group(1)}), "get_order_status"
-    if "recommend" in lower or "which one" in lower or "suggest" in lower:
-        category = session["category"]
-        budget = session["budget"]
-        return recommend_products.invoke({"category": category, "budget": budget}), "recommend_products"
-    budget = session["budget"]
-    category = session["category"]
-    if category and budget is not None:
-        return recommend_products.invoke({"category": category, "budget": budget}), "recommend_products"
-    if any(word in lower for word in ("headphone", "watch", "accessor", "product", "have")):
-        return search_products.invoke({"query": message, "category": category, "max_price": budget}), "search_products"
-    return "I can help find products, check an order, process a return, or make recommendations.", "none"
-
-
 async def chat_with_agent(agent, message: str, session_id: str = "default") -> dict[str, Any]:
     session = _session(session_id)
     had_memory = bool(session["messages"] or session["category"] or session["budget"] is not None)
     _remember(session, message)
-    if agent is None:
-        response, tool_used = _local_response(message, session)
+    deterministic = deterministic_response(message, session)
+    if deterministic is not None:
+        response, tool_used = deterministic
+    elif agent is None:
+        response, tool_used = FALLBACK_RESPONSE, "fallback"
     else:
         history = session["messages"][-10:]
-        result = await agent.ainvoke({"messages": history + [{"role": "user", "content": message}]})
-        response = result["messages"][-1].content
-        tool_used = "langchain_agent"
+        try:
+            result = await agent.ainvoke({"messages": history + [{"role": "user", "content": message}]})
+            response = result["messages"][-1].content
+            tool_used = "langchain_agent"
+        except Exception:
+            logger.warning("LLM request failed; returning deterministic support fallback.")
+            response, tool_used = FALLBACK_RESPONSE, "fallback"
     session["messages"].append({"role": "user", "content": message})
     session["messages"].append({"role": "assistant", "content": response})
     return {"response": response, "tool_used": tool_used, "memory_used": had_memory}
