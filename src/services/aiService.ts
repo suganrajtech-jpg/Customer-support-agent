@@ -13,7 +13,7 @@ export type AgentResponse = {
   orderId?: string;
   showReturnForm?: boolean;
   memoryUsed?: boolean;
-  memory?: MemoryState;
+  memory?: MemoryState | undefined;
 };
 
 const headphoneProducts = products.filter((product) => product.category === "Headphones");
@@ -36,6 +36,12 @@ export function getMockAgentResponse(message: string, memory: MemoryState): Agen
 
   if (orderId || normalized.includes("where is my order") || normalized.includes("track")) {
     const selectedOrder = orders.find((order) => order.id === (orderId ?? "1024")) ?? orders[0];
+    if (!selectedOrder) {
+      return {
+        text: "I couldn't find that order in the current order list.",
+        tool: "Order Status Tool",
+      };
+    }
     return {
       text: `I found order #${selectedOrder.id}. It’s ${selectedOrder.status.toLowerCase()} and expected to arrive ${selectedOrder.expectedDelivery}.`,
       tool: "Order Status Tool",
@@ -57,7 +63,7 @@ export function getMockAgentResponse(message: string, memory: MemoryState): Agen
       tool: "Recommendation Tool",
       products: matches.slice(0, 3),
       memoryUsed: Boolean(memory.budget && !budget),
-      memory: budget ? { budget, category: "Headphones" } : undefined,
+      ...(budget ? { memory: { budget, category: "Headphones" } } : {}),
     };
   }
 
@@ -72,7 +78,7 @@ export function getMockAgentResponse(message: string, memory: MemoryState): Agen
       text: `Yes. I found ${matches.length} wireless headphones that match your request.`,
       tool: "Product Search Tool",
       products: matches,
-      memory: budget ? { budget, category: "Headphones" } : undefined,
+      ...(budget ? { memory: { budget, category: "Headphones" } } : {}),
     };
   }
 
